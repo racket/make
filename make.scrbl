@@ -1,8 +1,19 @@
 #lang scribble/manual
-@(require (for-label scheme/base scheme/contract scheme/unit
+@(require (for-label (except-in racket/base file) racket/contract racket/unit
                      make make/make-unit make/make-sig
                      make/collection make/collection-sig make/collection-unit
-                     dynext/file-sig compiler/sig))
+                     dynext/file-sig compiler/sig)
+          scribble/core scribble/decode)
+
+@(define (into-nested s)
+   (nested-flow (make-style "leftindent" '())
+                (if (splice? s)
+                    (decode-flow (splice-run s))
+                    (list s))))
+@(define-syntax-rule (defsubproc . rest)
+   (into-nested (defproc . rest)))
+@(define-syntax-rule (defsubtogether . rest)
+   (into-nested (deftogether . rest)))
 
 @(define raco-manual @other-manual['(lib "scribblings/raco/raco.scrbl")])
 
@@ -146,19 +157,25 @@ Expands to
 ]}
 
 @defproc[(make/proc [spec (listof
-                           (cons/c (or/c path-string? (listof path-string?))
-                                   (cons/c (listof path-string?)
+                           (cons/c (or/c (or/c path-string? dependency?)
+                                         (listof (or/c path-string? dependency?)))
+                                   (cons/c (listof (or/c path-string? dependency?))
                                            (or/c null?
                                                  (list/c (-> any))))))]
                     [argv (or/c string? (vectorof string?) (listof string?))])
-         void?]
+         void?]{
 
 Performs a make according to @racket[spec] and using @racket[argv] as
 command-line arguments selecting one or more targets.
 
+Each target and dependency can either be a @racket[path-string?] or a
+@racket[dependency?]. If it is a @racket[path-string?], it will be
+implicitly treated as a filesystem dependency, and it will be wrapped
+with @racket[file].
+
 Each element of the @racket[spec] list is a target. A target element
-that starts with a list of strings is the same as multiple elements,
-one for each string. The second element of each target is a list of
+that starts with a list of targets is the same as multiple elements,
+one for each dependency. The second element of each target is a list of
 dependencies, and the third element (if any) of a target is the
 optional command thunk.
 
@@ -173,7 +190,11 @@ dependencies).
 
 While running a command thunk, @racket[make/proc] catches exceptions
 and wraps them in an @racket[exn:fail:make] structure, the raises the
-resulting structure.}
+resulting structure.
+
+@history[
+ #:changed "1.1" @elem{Added support for @racket[dependency?]
+                       targets/dependencies.}]}
 
 @defstruct[(exn:fail:make exn:fail)
            ([targets (listof path-string?)]
@@ -201,6 +222,79 @@ given k@racket[_spec]. The default is @racket[#f].}
 
 A parameter that controls whether @racket[make/proc] prints the reason
 that a command thunk is called. The default is @racket[#t].}
+
+@subsection{Dependency Types}
+
+@subsubsection{Built-In Dependency Types}
+
+@defproc[(file [path path-string?]) dependency?]{
+
+The default dependency type used by @racket[make] and
+@racket[make/proc], expresses a dependency on a particular file or
+directory on the filesystem. Files’ timestamps are used to determine
+whether or not they need to be rebuilt.
+
+@history[#:added "1.1"]}
+
+@defproc[(label [name string?]) dependency?]{
+
+A dependency type that does not represent any particular resource and
+will always be built if something depends on it. These are similar to
+“phony” targets in @exec{make}.
+
+@history[#:added "1.1"]}
+
+@subsubsection{Custom Dependency Types}
+
+@deftogether[(@defidform[#:kind "generic inferface" gen:dependency]
+              @defproc[(dependency? [v any/c]) boolean?])]{
+
+A generic interface for dependency types that can be used with
+@racket[make] and @racket[make/proc].
+
+The only @emph{required} method is
+@racket[dependency-modification-timestamp]; the others are optional
+but overriding them can affect aspects of @racket[make]’s behavior.
+
+In addition to implementing @racket[gen:dependency], it can be
+helpful to implement @racket[gen:equal+hash], since @racket[make]
+uses @racket[equal?] to determine if a target matches a dependency.
+
+@defsubproc[(dependency-modification-timestamp [dep dependency?])
+            (or/c exact-integer? #f)]{
+
+Required. Should return the time the dependency was last modified
+in seconds since midnight UTC, January 1, 1970, or @racket[#f] if the
+dependency does not exist.}
+
+@defsubproc[(dependency->string [dep dependency?]) string?]{
+
+Optional. Used by @racket[make] and @racket[make/proc] to print the
+dependency in diagnostic information that will be seen by the user.
+
+If this method is not implemented, but @racket[dependency-label] is,
+this will defer to @racket[dependency-label] to produce a result.
+Otherwise, it will return the result of @racket[(format "~a" dep)].}
+
+@defsubproc[(dependency-label [dep dependency?]) string?]{
+
+Optional. Used when determining whether or not a particular string
+matches a particular target, which is used by task dependencies as
+well as the @racket[argv] argument provided to @racket[make] and
+@racket[make/proc].
+
+If this method is not implemented, it will defer to
+@racket[dependency->string] to produce a result.}
+
+@defsubtogether[(@defproc[(dependency-pre-build [dep dependency?]) any]
+                 @defproc[(dependency-post-build [dep dependency?]) any])]{
+
+Optional. By default, these methods do nothing, but they are called by
+@racket[make] and @racket[make/proc] just before and just after a target
+is built. They are intended to be used as hooks that dependency types can
+use to be informed about parts of the build process.}
+
+@history[#:added "1.1"]}
 
 @; ----------------------------------------
 
