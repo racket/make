@@ -3,13 +3,14 @@
 (require (for-syntax racket/base)
          racket/unit
          "make-sig.rkt"
-         "make-unit.rkt")
+         "make-unit.rkt"
+         "private/dependency.rkt")
 
 (define-values/invoke-unit/infer make@)
 
 (provide-signature-elements make^)
 
-(provide make)
+(provide make (all-from-out "private/dependency.rkt"))
 
 (define-syntax make
   (lambda (stx)
