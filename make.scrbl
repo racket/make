@@ -1,6 +1,5 @@
-#lang scribble/doc
-@(require scribble/manual
-          (for-label scheme/base scheme/contract scheme/unit
+#lang scribble/manual
+@(require (for-label scheme/base scheme/contract scheme/unit
                      make make/make-unit make/make-sig
                      make/collection make/collection-sig make/collection-unit
                      dynext/file-sig compiler/sig))
@@ -207,6 +206,10 @@ that a command thunk is called. The default is @racket[#t].}
 
 @subsection[#:tag "make-signature"]{Signature}
 
+@margin-note{@racket[make^] and @racket[make@] are deprecated.
+They exist for backward-compatibility and will likely be removed in
+the future. New code should use the @racketmodname[make] module.}
+
 @defmodule[make/make-sig]
 
 @defsignature[make^ ()]{
@@ -382,6 +385,11 @@ Compilation is performed as with @exec{raco make} (see
 @|raco-manual|).}
 
 @subsection{Signature}
+
+@margin-note{@racket[make:collection^] and @racket[make:collection@] are
+deprecated. They exist for backward-compatibility and will likely be
+removed in the future. New code should use the
+@racketmodname[make/collection] module.}
 
 @defmodule[make/collection-sig]
 

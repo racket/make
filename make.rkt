@@ -1,6 +1,7 @@
-#lang mzscheme
+#lang racket/base
 
-(require mzlib/unit
+(require (for-syntax racket/base)
+         racket/unit
          "make-sig.rkt"
          "make-unit.rkt")
 
