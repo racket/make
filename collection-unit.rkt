@@ -1,8 +1,6 @@
-#lang mzscheme
+#lang racket/base
 
-(require mzlib/unit
-         mzlib/list
-         mzlib/file
+(require racket/unit
          "collection-sig.rkt"
          "make-sig.rkt"
          compiler/sig
